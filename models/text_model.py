@@ -7,6 +7,7 @@
 
 """
 
+import torch
 import torch.nn as nn
 
 
@@ -14,14 +15,15 @@ class TextEncoder(nn.Module):
     def __init__(self, config):
         super(TextEncoder, self).__init__()
         self.n_layers = config['layers']
-        self.embed_size = config['embedding']
+        self.embedding = nn.Embedding.from_pretrained(torch.load(config["embedding_path"]), freeze=False)
         self.hidden_size = config['hidden']
         self.bidirectional = config['bidirectional']
         self.dropout = config['dropout']
-        self.gru = nn.GRU(self.embed_size, self.hidden_size, self.n_layers,
+        self.gru = nn.GRU(config['embedding'], self.hidden_size, self.n_layers,
                           dropout=self.dropout, bidirectional=self.bidirectional)
 
-    def forward(self, embedded, input_lengths, hidden=None):
+    def forward(self, input, input_lengths, hidden=None):
+        embedded = self.embedding(input)
         packed = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths, batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)

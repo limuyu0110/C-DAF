@@ -151,7 +151,8 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 if __name__ == '__main__':
     config = load_json(CONFIG_FILE)
     train_loader, test_loader = diloader.get_loader(config)
-    encoder = TextEncoder(config['text']).to(device)
+    encoder = TextEncoder(config['text'])
+    encoder = encoder.to(device)
     generator = Generator(config).to(device)
     discriminator = Discriminator(config).to(device)
     weights_init(generator)

@@ -8,7 +8,10 @@
     "hidden": 64,
     "layers": 1,
     "bidirectional": true,
-    "dropout": 0.0
+    "dropout": 0.0,
+    "threshold": 2,
+    "max_length": 128,
+    "embedding_path": "E:\\#Projects\\workspace\\C-DAF\\data\\embedding.pt"
   },
   "train": {
     "batch_size": 32,
@@ -26,6 +29,9 @@
   "file": {
     "train_img_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\train_img_dir",
     "test_img_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\test_img_dir",
-    "desc_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\final.json"
+    "desc_raw_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\raw.json",
+    "desc_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\final.json",
+    "vocab_path": "E:\\#Projects\\workspace\\C-DAF\\data\\vocab.json",
+    "w2v_path": "E:\\#Projects\\workspace\\C-DAF\\ja\\ja.bin"
   }
 }

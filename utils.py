@@ -15,6 +15,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 import json
+import codecs
 
 import torch.nn as nn
 
@@ -43,7 +44,13 @@ def validation_contrast(real, fake):
 
 
 def load_json(path):
-    return json.load(open(path, 'r'))
+    with codecs.open(path, 'r', 'utf8') as f:
+        return json.load(f)
+
+
+def dump_json(obj, path):
+    with codecs.open(path, 'w', 'utf8') as f:
+        json.dump(obj, f, ensure_ascii=False, indent=4)
 
 
 def weights_init(m):
