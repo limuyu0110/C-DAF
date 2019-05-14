@@ -75,6 +75,56 @@ def one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, op
     return errD.mean().item(), errG.mean().item(), D_x, D_G_z1, D_G_z2
 
 
+def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion):
+    real_img = data[0].to(device)
+    seqs = data[1].to(device)
+    lengths = data[2].to(device)
+
+    _, vectors = encoder(seqs, lengths)
+    vectors = vectors.unsqueeze(2).unsqueeze(2)
+
+    discriminator.zero_grad()
+    label = torch.full((real_img.size(0),), 1, device=device)
+    output = discriminator(real_img).view(-1)
+    errD_real = criterion(output, label)
+    # Calculate gradients for D in backward pass
+    errD_real.backward()
+    D_x = output.mean().item()
+
+    ## Train with all-fake batch
+    fake = generator(vectors)
+    label.fill_(0)
+    output = discriminator(fake.detach()).view(-1)
+    errD_fake = criterion(output, label)
+    errD_fake.backward()
+    D_G_z1 = output.mean().item()
+    optimizerD.step()
+
+    return D_x, D_G_z1
+
+def one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion):
+    real_img = data[0].to(device)
+    seqs = data[1].to(device)
+    lengths = data[2].to(device)
+
+    generator.zero_grad()
+    encoder.zero_grad()
+    label = torch.full((real_img.size(0),), 1, device=device)
+
+    _, vectors = encoder(seqs, lengths)
+    vectors = vectors.unsqueeze(2).unsqueeze(2)
+    fake = generator(vectors)
+
+    output = discriminator(fake).view(-1)
+    errG = criterion(output, label)
+    errG.backward()
+    D_G_z2 = output.mean().item()
+
+    optimizerG.step()
+    optimizerE.step()
+
+    return D_G_z2
+
 def validation(test_loader, encoder, generator, discriminator):
     D_x, D_G_z1, D_G_z2 = 0, 0, 0
     for i, data in enumerate(test_loader):
@@ -121,13 +171,25 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 
     for epoch in range(num_epochs):
         print(F"Begin Epoch[{epoch}]")
-        errD, errG, D_x, D_G_z1, D_G_z2 = 0, 0, 0, 0, 0
+        D_x, D_G_z1, D_G_z2 = 0, 0, 0
+        update_D, update_G = 1, 1
         for i, data in tqdm(enumerate(train_loader)):
-            _errD, _errG, _D_x, _D_G_z1, _D_G_z2 = \
-                one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, optimizerD, criterion)
-            # accumulating parameters
-            errD += _errD
-            errG += _errG
+            # _errD, _errG, _D_x, _D_G_z1, _D_G_z2 = \
+            #     one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, optimizerD, criterion)
+            # # accumulating parameters
+            # errD += _errD
+            # errG += _errG
+            # D_x += _D_x
+            # D_G_z1 += _D_G_z1
+            # D_G_z2 += _D_G_z2
+
+            if update_D:
+                _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+            else:
+                with torch.no_grad:
+                    _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+            _D_G_z2 = one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion)
+
             D_x += _D_x
             D_G_z1 += _D_G_z1
             D_G_z2 += _D_G_z2
@@ -135,13 +197,12 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
             if i % num_iter_print_loss == 0:
                 print(
                     F"[{epoch}][{i}/{len(train_loader)}] -- "
-                    F"errD: {errD / num_iter_print_loss}; "
-                    F"errG: {errG / num_iter_print_loss}; "
                     F"D_x: {D_x / num_iter_print_loss}; "
                     F"D_G_z1: {D_G_z1 / num_iter_print_loss}; "
                     F"D_G_z2: {D_G_z2 / num_iter_print_loss};"
                 )
-                errD, errG, D_x, D_G_z1, D_G_z2 = 0, 0, 0, 0, 0
+                update_D = (D_G_z1 > 0.98)
+                D_x, D_G_z1, D_G_z2 = 0, 0, 0
 
             if i % num_iter_validation == 0:
                 print("Starting Validation ...")
