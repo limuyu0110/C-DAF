@@ -7,22 +7,16 @@
 
 """
 
-from torchvision import transforms, datasets
-from torch.utils.data import DataLoader, Dataset
-import torch
-from data_loader import DIData, get_loader
-import torchvision as tv
-from matplotlib import pyplot as plt
-import numpy as np
-from utils import *
-from config import *
-import torch.optim as optim
+import random
 
+import torch.optim as optim
 from tqdm import tqdm
 
-from text_model import TextEncoder
-from img_model import Generator, Discriminator
-import random
+from config import *
+from dataloader import diloader
+from models.img_model import Generator, Discriminator
+from models.text_model import TextEncoder
+from utils import *
 
 manualSeed = 999
 print("Random Seed: ", manualSeed)
@@ -112,7 +106,6 @@ def validation(test_loader, encoder, generator, discriminator):
     )
 
 
-
 def train(train_loader, test_loader, encoder, generator, discriminator, config):
     num_epochs = config['train']['num_epochs']
     num_iter_print_loss = config['train']['num_iter_print_loss']
@@ -130,7 +123,6 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
         print(F"Begin Epoch[{epoch}]")
         errD, errG, D_x, D_G_z1, D_G_z2 = 0, 0, 0, 0, 0
         for i, data in tqdm(enumerate(train_loader)):
-
             _errD, _errG, _D_x, _D_G_z1, _D_G_z2 = \
                 one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, optimizerD, criterion)
             # accumulating parameters
@@ -158,7 +150,7 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 
 if __name__ == '__main__':
     config = load_json(CONFIG_FILE)
-    train_loader, test_loader = get_loader(config)
+    train_loader, test_loader = diloader.get_loader(config)
     encoder = TextEncoder(config['text']).to(device)
     generator = Generator(config).to(device)
     discriminator = Discriminator(config).to(device)

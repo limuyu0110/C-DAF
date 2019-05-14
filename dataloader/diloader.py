@@ -22,7 +22,6 @@ from typing import Dict
 
 my_transform = Compose([
     Resize((64, 64)),
-    # Here Needs ReScaling (Probably...)
     ToTensor(),
     Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
