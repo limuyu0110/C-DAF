@@ -162,4 +162,6 @@ if __name__ == '__main__':
     encoder = TextEncoder(config['text']).to(device)
     generator = Generator(config).to(device)
     discriminator = Discriminator(config).to(device)
+    weights_init(generator)
+    weights_init(discriminator)
     train(train_loader, test_loader, encoder, generator, discriminator, config)

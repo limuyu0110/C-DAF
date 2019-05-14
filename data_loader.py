@@ -8,7 +8,7 @@
 """
 
 from torch.utils.data import Dataset
-from torchvision.transforms import Compose, ToTensor, Resize
+from torchvision.transforms import Compose, ToTensor, Resize, Normalize
 import torch
 import os
 from overrides import overrides
@@ -24,6 +24,7 @@ my_transform = Compose([
     Resize((64, 64)),
     # Here Needs ReScaling (Probably...)
     ToTensor(),
+    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
 
