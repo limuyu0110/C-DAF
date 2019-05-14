@@ -102,3 +102,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+.idea/
+
+torch_trial.py
+torchvision_trial.py
+**/data
+**/ja
