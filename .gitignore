@@ -109,3 +109,5 @@ torch_trial.py
 torchvision_trial.py
 **/data
 **/ja
+checkpoints/
+results/

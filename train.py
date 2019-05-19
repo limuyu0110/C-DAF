@@ -75,7 +75,7 @@ def one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, op
     return errD.mean().item(), errG.mean().item(), D_x, D_G_z1, D_G_z2
 
 
-def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion):
+def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, no_grad=0):
     real_img = data[0].to(device)
     seqs = data[1].to(device)
     lengths = data[2].to(device)
@@ -88,7 +88,8 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
     output = discriminator(real_img).view(-1)
     errD_real = criterion(output, label)
     # Calculate gradients for D in backward pass
-    errD_real.backward()
+    if not no_grad:
+        errD_real.backward()
     D_x = output.mean().item()
 
     ## Train with all-fake batch
@@ -96,11 +97,13 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
     label.fill_(0)
     output = discriminator(fake.detach()).view(-1)
     errD_fake = criterion(output, label)
-    errD_fake.backward()
+    if not no_grad:
+        errD_fake.backward()
     D_G_z1 = output.mean().item()
     optimizerD.step()
 
     return D_x, D_G_z1
+
 
 def one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion):
     real_img = data[0].to(device)
@@ -125,7 +128,8 @@ def one_iter_generator(data, encoder, generator, discriminator, optimizerE, opti
 
     return D_G_z2
 
-def validation(test_loader, encoder, generator, discriminator):
+
+def validation(test_loader, encoder, generator, discriminator, epoch, iter):
     D_x, D_G_z1, D_G_z2 = 0, 0, 0
     for i, data in enumerate(test_loader):
         real_img = data[0].to(device)
@@ -146,7 +150,38 @@ def validation(test_loader, encoder, generator, discriminator):
         output = discriminator(fake).view(-1)
         D_G_z2 += output.mean().item()
 
-        validation_contrast(real_img, fake)
+        validation_contrast_save(real_img, fake, epoch, iter)
+
+    print(
+        F"[Validation] -- "
+        F"D_x: {D_x / len(test_loader)}; "
+        F"D_G_z1: {D_G_z1 / len(test_loader)}; "
+        F"D_G_z2: {D_G_z2 / len(test_loader)};"
+    )
+
+
+def epoch_validation(test_loader, encoder, generator, discriminator, epoch):
+    D_x, D_G_z1, D_G_z2 = 0, 0, 0
+    for i, data in enumerate(test_loader):
+        real_img = data[0].to(device)
+        seqs = data[1].to(device)
+        lengths = data[2].to(device)
+        _, vectors = encoder(seqs, lengths)
+        vectors = vectors.unsqueeze(2).unsqueeze(2)
+
+        discriminator.zero_grad()
+        output = discriminator(real_img).view(-1)
+        D_x += output.mean().item()
+
+        fake = generator(vectors)
+        output = discriminator(fake.detach()).view(-1)
+        D_G_z1 += output.mean().item()
+
+        generator.zero_grad()
+        output = discriminator(fake).view(-1)
+        D_G_z2 += output.mean().item()
+
+        validation_contrast_save(real_img, fake, epoch)
 
     print(
         F"[Validation] -- "
@@ -169,44 +204,53 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 
     criterion = torch.nn.BCELoss()
 
+    D_xs, D_G_z1s, D_G_z2s = [], [], []
+
     for epoch in range(num_epochs):
         print(F"Begin Epoch[{epoch}]")
         D_x, D_G_z1, D_G_z2 = 0, 0, 0
-        update_D, update_G = 1, 1
-        for i, data in tqdm(enumerate(train_loader)):
-            # _errD, _errG, _D_x, _D_G_z1, _D_G_z2 = \
-            #     one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, optimizerD, criterion)
-            # # accumulating parameters
-            # errD += _errD
-            # errG += _errG
-            # D_x += _D_x
-            # D_G_z1 += _D_G_z1
-            # D_G_z2 += _D_G_z2
+        D_x_e, D_G_z1_e, D_G_z2_e = 0, 0, 0
 
+        update_D, update_G = 1, 1
+        len_epoch = len(train_loader)
+
+        for i, data in tqdm(enumerate(train_loader)):
             if update_D:
                 _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
             else:
-                with torch.no_grad:
-                    _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+                # print('Not updating Discriminator')
+                with torch.no_grad():
+                    _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, 1)
             _D_G_z2 = one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion)
 
             D_x += _D_x
             D_G_z1 += _D_G_z1
             D_G_z2 += _D_G_z2
 
-            if i % num_iter_print_loss == 0:
+            D_x_e += _D_x
+            D_G_z1_e += _D_G_z1
+            D_G_z2_e += _D_G_z2
+
+            if i and i % num_iter_print_loss == 0:
                 print(
                     F"[{epoch}][{i}/{len(train_loader)}] -- "
                     F"D_x: {D_x / num_iter_print_loss}; "
                     F"D_G_z1: {D_G_z1 / num_iter_print_loss}; "
                     F"D_G_z2: {D_G_z2 / num_iter_print_loss};"
                 )
-                update_D = (D_G_z1 > 0.98)
+                update_D = (D_x / num_iter_print_loss < 0.8) or (D_G_z1 / num_iter_print_loss > 0.2)
                 D_x, D_G_z1, D_G_z2 = 0, 0, 0
 
-            if i % num_iter_validation == 0:
-                print("Starting Validation ...")
-                validation(test_loader, encoder, generator, discriminator)
+            # if i and i % num_iter_validation == 0:
+            #     print("Starting Validation ...")
+            #     validation(test_loader, encoder, generator, discriminator, epoch, i)
+
+        epoch_validation(test_loader, encoder, generator, discriminator, epoch)
+        D_xs.append(D_x_e / len_epoch)
+        D_G_z1s.append(D_G_z1_e / len_epoch)
+        D_G_z2s.append(D_G_z2_e / len_epoch)
+        save_model(epoch, encoder, generator, discriminator)
+        plot_zag(D_xs, D_G_z1s, D_G_z2s)
 
 
 if __name__ == '__main__':
