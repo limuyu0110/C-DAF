@@ -1,6 +1,6 @@
 {
   "img": {
-    "size": 64,
+    "size": 128,
     "channels": 3
   },
   "text": {
@@ -15,7 +15,7 @@
   },
   "train": {
     "batch_size": 32,
-    "num_epochs": 100,
+    "num_epochs": 200,
     "lr": 0.0003,
     "num_iter_print_loss": 10,
     "num_iter_validation": 200
@@ -32,6 +32,8 @@
     "desc_raw_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\raw.json",
     "desc_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\final.json",
     "vocab_path": "E:\\#Projects\\workspace\\C-DAF\\data\\vocab.json",
-    "w2v_path": "E:\\#Projects\\workspace\\C-DAF\\ja\\ja.bin"
+    "w2v_path": "E:\\#Projects\\workspace\\C-DAF\\ja\\ja.bin",
+    "res_dir": "E:\\#Projects\\workspace\\C-DAF\\results\\128",
+    "checkpoints_dir": "E:\\#Projects\\workspace\\C-DAF\\checkpoints\\128"
   }
 }

@@ -85,7 +85,8 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
 
     discriminator.zero_grad()
     label = torch.full((real_img.size(0),), 1, device=device)
-    output = discriminator(real_img).view(-1)
+    output = discriminator(real_img)
+    output = output.view(-1)
     errD_real = criterion(output, label)
     # Calculate gradients for D in backward pass
     if not no_grad:
@@ -249,8 +250,8 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
         D_xs.append(D_x_e / len_epoch)
         D_G_z1s.append(D_G_z1_e / len_epoch)
         D_G_z2s.append(D_G_z2_e / len_epoch)
-        save_model(epoch, encoder, generator, discriminator)
-        plot_zag(D_xs, D_G_z1s, D_G_z2s)
+        save_model(epoch, encoder, generator, discriminator, config['file'])
+        plot_zag(D_xs, D_G_z1s, D_G_z2s, config['file'])
 
 
 if __name__ == '__main__':

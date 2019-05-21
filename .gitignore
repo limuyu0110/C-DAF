@@ -111,3 +111,5 @@ torchvision_trial.py
 **/ja
 checkpoints/
 results/
+
+trial/

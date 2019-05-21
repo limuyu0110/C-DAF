@@ -46,7 +46,7 @@ def validation_contrast(real, fake):
 
 
 def validation_contrast_save(real, fake, epoch):
-    img = tvutils.make_grid(torch.cat([real, fake], dim=0).cpu(), 2).detach().numpy()
+    img = tvutils.make_grid(torch.cat([real, fake], dim=0).cpu(), 2, normalize=True).detach().numpy()
     plt.imsave('./results/' + F'{epoch}.jpg', np.transpose(img, (1, 2, 0)))
 
 
@@ -70,7 +70,7 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def plot_zag(D_xs, D_G_z1s, D_G_z2s):
+def plot_zag(D_xs, D_G_z1s, D_G_z2s, config):
 
     with open('./results/stat.json', 'w') as f:
         json.dump({
@@ -88,12 +88,12 @@ def plot_zag(D_xs, D_G_z1s, D_G_z2s):
     plt.plot(D_G_z2s, color='blue', label='D_G_z2')
     # plt.plot()
     plt.legend()
-    plt.savefig('results/gram.png')
+    plt.savefig(F'{config["res_dir"]}/gram.png')
     # plt.show()
 
 
-def save_model(epoch, encoder, generator, discriminator):
-    file = F"checkpoints/{epoch}.pt"
+def save_model(epoch, encoder, generator, discriminator, config):
+    file = F"{config['checkpoints_dir']}/{epoch}.pt"
     d = {
         'encoder': encoder.state_dict(),
         'generator': generator.state_dict(),
@@ -102,8 +102,8 @@ def save_model(epoch, encoder, generator, discriminator):
     torch.save(d, file)
 
 
-def load_model(epoch, encoder: Module, generator: Module, discriminator: Module):
-    file = F"checkpoints/{epoch}.pt"
+def load_model(epoch, encoder: Module, generator: Module, discriminator: Module, config):
+    file = F"{config['checkpoints_dir']}/{epoch}.pt"
     d = torch.load(file)
 
     encoder.load_state_dict(d['encoder'])

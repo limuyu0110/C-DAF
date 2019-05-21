@@ -25,8 +25,10 @@ sys.path.append('../')
 from utils import load_json
 
 my_transform = Compose([
-    Resize((64, 64)),
+    # Resize((64, 64)),
+    Resize((128, 128)),
     ToTensor(),
+    # Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
