@@ -113,3 +113,6 @@ checkpoints/
 results/
 
 trial/
+
+**/o.*/
+**/o.*

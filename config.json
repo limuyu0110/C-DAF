@@ -15,10 +15,12 @@
   },
   "train": {
     "batch_size": 32,
-    "num_epochs": 200,
+    "num_epochs": 100,
     "lr": 0.0003,
     "num_iter_print_loss": 10,
-    "num_iter_validation": 200
+    "num_iter_check": 10,
+    "d_x_up": 0.8,
+    "d_g_z1_down": 0.2
   },
   "generator": {
     "features": 128
@@ -33,7 +35,7 @@
     "desc_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\final.json",
     "vocab_path": "E:\\#Projects\\workspace\\C-DAF\\data\\vocab.json",
     "w2v_path": "E:\\#Projects\\workspace\\C-DAF\\ja\\ja.bin",
-    "res_dir": "E:\\#Projects\\workspace\\C-DAF\\results\\128",
-    "checkpoints_dir": "E:\\#Projects\\workspace\\C-DAF\\checkpoints\\128"
+    "res_dir": "E:\\#Projects\\workspace\\C-DAF\\results\\t2i",
+    "checkpoints_dir": "E:\\#Projects\\workspace\\C-DAF\\checkpoints\\t2i"
   }
 }

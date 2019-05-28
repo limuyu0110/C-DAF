@@ -45,10 +45,9 @@ def validation_contrast(real, fake):
     plt.show()
 
 
-def validation_contrast_save(real, fake, epoch):
+def validation_contrast_save(real, fake, epoch, config):
     img = tvutils.make_grid(torch.cat([real, fake], dim=0).cpu(), 2, normalize=True).detach().numpy()
-    plt.imsave('./results/' + F'{epoch}.jpg', np.transpose(img, (1, 2, 0)))
-
+    plt.imsave(config['file']['res_dir'] + F'\\{epoch}.jpg', np.transpose(img, (1, 2, 0)))
 
 
 def load_json(path):
@@ -70,7 +69,10 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def plot_zag(D_xs, D_G_z1s, D_G_z2s, config):
+def plot_zag(L, config):
+    D_xs = [float(x[0]) for x in L]
+    D_G_z1s = [float(x[1]) for x in L]
+    D_G_z2s = [float(x[2]) for x in L]
 
     with open('./results/stat.json', 'w') as f:
         json.dump({

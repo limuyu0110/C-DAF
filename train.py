@@ -18,61 +18,14 @@ from models.img_model import Generator, Discriminator
 from models.text_model import TextEncoder
 from utils import *
 
+import numpy as np
+
 manualSeed = 999
 print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
 device = torch.device('cuda:0')
-
-
-def one_iter(data, encoder, generator, discriminator, optimizerE, optimizerG, optimizerD, criterion):
-    ############################
-    # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-    ###########################
-    ## Train with all-real batch
-    real_img = data[0].to(device)
-    seqs = data[1].to(device)
-    lengths = data[2].to(device)
-
-    _, vectors = encoder(seqs, lengths)
-    vectors = vectors.unsqueeze(2).unsqueeze(2)
-
-    discriminator.zero_grad()
-    b_size = real_img.size(0)
-    label = torch.full((b_size,), 1, device=device)
-    output = discriminator(real_img)
-    output = output.view(-1)
-    errD_real = criterion(output, label)
-    # Calculate gradients for D in backward pass
-    errD_real.backward()
-    D_x = output.mean().item()
-
-    ## Train with all-fake batch
-    fake = generator(vectors)
-    label.fill_(0)
-    output = discriminator(fake.detach()).view(-1)
-    errD_fake = criterion(output, label)
-    errD_fake.backward()
-    D_G_z1 = output.mean().item()
-    errD = errD_real + errD_fake
-    # Update D
-    optimizerD.step()
-
-    ############################
-    # (2) Update G network: maximize log(D(G(z)))
-    ###########################
-    generator.zero_grad()
-    label.fill_(1)
-    output = discriminator(fake).view(-1)
-    errG = criterion(output, label)
-    errG.backward()
-    D_G_z2 = output.mean().item()
-    # Update G
-    optimizerG.step()
-    optimizerE.step()
-
-    return errD.mean().item(), errG.mean().item(), D_x, D_G_z1, D_G_z2
 
 
 def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, no_grad=0):
@@ -130,8 +83,9 @@ def one_iter_generator(data, encoder, generator, discriminator, optimizerE, opti
     return D_G_z2
 
 
-def validation(test_loader, encoder, generator, discriminator, epoch, iter):
+def epoch_validation(test_loader, encoder, generator, discriminator, epoch, config):
     D_x, D_G_z1, D_G_z2 = 0, 0, 0
+
     for i, data in enumerate(test_loader):
         real_img = data[0].to(device)
         seqs = data[1].to(device)
@@ -151,38 +105,7 @@ def validation(test_loader, encoder, generator, discriminator, epoch, iter):
         output = discriminator(fake).view(-1)
         D_G_z2 += output.mean().item()
 
-        validation_contrast_save(real_img, fake, epoch, iter)
-
-    print(
-        F"[Validation] -- "
-        F"D_x: {D_x / len(test_loader)}; "
-        F"D_G_z1: {D_G_z1 / len(test_loader)}; "
-        F"D_G_z2: {D_G_z2 / len(test_loader)};"
-    )
-
-
-def epoch_validation(test_loader, encoder, generator, discriminator, epoch):
-    D_x, D_G_z1, D_G_z2 = 0, 0, 0
-    for i, data in enumerate(test_loader):
-        real_img = data[0].to(device)
-        seqs = data[1].to(device)
-        lengths = data[2].to(device)
-        _, vectors = encoder(seqs, lengths)
-        vectors = vectors.unsqueeze(2).unsqueeze(2)
-
-        discriminator.zero_grad()
-        output = discriminator(real_img).view(-1)
-        D_x += output.mean().item()
-
-        fake = generator(vectors)
-        output = discriminator(fake.detach()).view(-1)
-        D_G_z1 += output.mean().item()
-
-        generator.zero_grad()
-        output = discriminator(fake).view(-1)
-        D_G_z2 += output.mean().item()
-
-        validation_contrast_save(real_img, fake, epoch)
+        validation_contrast_save(real_img, fake, epoch, config)
 
     print(
         F"[Validation] -- "
@@ -195,7 +118,7 @@ def epoch_validation(test_loader, encoder, generator, discriminator, epoch):
 def train(train_loader, test_loader, encoder, generator, discriminator, config):
     num_epochs = config['train']['num_epochs']
     num_iter_print_loss = config['train']['num_iter_print_loss']
-    num_iter_validation = config['train']['num_iter_validation']
+    num_iter_check = config['train']['num_iter_check']
 
     lr = config['train']['lr']
 
@@ -205,53 +128,55 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 
     criterion = torch.nn.BCELoss()
 
-    D_xs, D_G_z1s, D_G_z2s = [], [], []
+    D_all_list = []
 
     for epoch in range(num_epochs):
         print(F"Begin Epoch[{epoch}]")
-        D_x, D_G_z1, D_G_z2 = 0, 0, 0
-        D_x_e, D_G_z1_e, D_G_z2_e = 0, 0, 0
+        D_check = np.zeros(3, dtype=float)
+        D_epoch = np.zeros(3, dtype=float)
+        D_print = np.zeros(3, dtype=float)
 
         update_D, update_G = 1, 1
         len_epoch = len(train_loader)
 
         for i, data in tqdm(enumerate(train_loader)):
             if update_D:
-                _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+                tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+                D_check[:2] += tmp
+                D_epoch[:2] += tmp
+                D_print[:2] += tmp
             else:
-                # print('Not updating Discriminator')
                 with torch.no_grad():
-                    _D_x, _D_G_z1 = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, 1)
-            _D_G_z2 = one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion)
+                    tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, 1)
+                    D_check[:2] += tmp
+                    D_epoch[:2] += tmp
+                    D_print[:2] += tmp
 
-            D_x += _D_x
-            D_G_z1 += _D_G_z1
-            D_G_z2 += _D_G_z2
-
-            D_x_e += _D_x
-            D_G_z1_e += _D_G_z1
-            D_G_z2_e += _D_G_z2
+            tmp = one_iter_generator(data, encoder, generator, discriminator, optimizerE, optimizerG, criterion)
+            D_check[2] += tmp
+            D_epoch[2] += tmp
+            D_print[2] += tmp
 
             if i and i % num_iter_print_loss == 0:
                 print(
                     F"[{epoch}][{i}/{len(train_loader)}] -- "
-                    F"D_x: {D_x / num_iter_print_loss}; "
-                    F"D_G_z1: {D_G_z1 / num_iter_print_loss}; "
-                    F"D_G_z2: {D_G_z2 / num_iter_print_loss};"
+                    F"D_x: {D_print[0] / num_iter_print_loss}; "
+                    F"D_G_z1: {D_print[1] / num_iter_print_loss}; "
+                    F"D_G_z2: {D_print[2] / num_iter_print_loss};"
                 )
-                update_D = (D_x / num_iter_print_loss < 0.8) or (D_G_z1 / num_iter_print_loss > 0.2)
-                D_x, D_G_z1, D_G_z2 = 0, 0, 0
+                D_print = np.zeros(3, dtype=float)
 
-            # if i and i % num_iter_validation == 0:
-            #     print("Starting Validation ...")
-            #     validation(test_loader, encoder, generator, discriminator, epoch, i)
+            if i and i % num_iter_check == 0:
+                update_D = (D_check[0] / num_iter_check < config['train']['d_x_up']) \
+                           or (D_check[1] / num_iter_print_loss > config['train']['d_g_z1_down'])
+                D_check = np.zeros(3, dtype=float)
 
-        epoch_validation(test_loader, encoder, generator, discriminator, epoch)
-        D_xs.append(D_x_e / len_epoch)
-        D_G_z1s.append(D_G_z1_e / len_epoch)
-        D_G_z2s.append(D_G_z2_e / len_epoch)
+        epoch_validation(test_loader, encoder, generator, discriminator, epoch, config)
+
+        D_epoch /= len_epoch
+        D_all_list.append(D_epoch)
         save_model(epoch, encoder, generator, discriminator, config['file'])
-        plot_zag(D_xs, D_G_z1s, D_G_z2s, config['file'])
+        plot_zag(D_all_list, config['file'])
 
 
 if __name__ == '__main__':
