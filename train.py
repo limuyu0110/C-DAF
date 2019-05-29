@@ -28,7 +28,7 @@ torch.manual_seed(manualSeed)
 device = torch.device('cuda:0')
 
 
-def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, no_grad=0):
+def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, optimizerE, criterion, no_grad=0):
     real_img = data[0].to(device)
     seqs = data[1].to(device)
     lengths = data[2].to(device)
@@ -48,9 +48,12 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
 
     if not no_grad:
         errD_real.backward(retain_graph=True)
+    optimizerE.step()
+
     D_x = output.mean().item()
 
-    noise = torch.randn(vectors_new_shape.shape, device=device)
+    noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
+
     fake = generator(vectors_new_shape, noise)
     label.fill_(0)
     output_1 = discriminator(vectors, fake.detach()).view(-1)
@@ -82,7 +85,7 @@ def one_iter_generator(data, encoder, generator, discriminator, optimizerE, opti
 
     _, vectors = encoder(seqs, lengths)
     vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
-    noise = torch.randn(vectors_new_shape.shape, device=device)
+    noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
     fake = generator(vectors_new_shape, noise)
 
     output = discriminator(vectors, fake).view(-1)
@@ -109,7 +112,7 @@ def epoch_validation(test_loader, encoder, generator, discriminator, epoch, conf
         output = discriminator(vectors, real_img).view(-1)
         D_x += output.mean().item()
 
-        noise = torch.randn(vectors_new_shape.shape, device=device)
+        noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
         fake = generator(vectors_new_shape, noise)
         output = discriminator(vectors, fake.detach()).view(-1)
         D_G_z1 += output.mean().item()
@@ -153,13 +156,14 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
 
         for i, data in tqdm(enumerate(train_loader)):
             if update_D:
-                tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion)
+                tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, optimizerE, criterion)
                 D_check[:2] += tmp
                 D_epoch[:2] += tmp
                 D_print[:2] += tmp
             else:
+                print('no')
                 with torch.no_grad():
-                    tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, criterion, 1)
+                    tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, optimizerE, criterion, 1)
                     D_check[:2] += tmp
                     D_epoch[:2] += tmp
                     D_print[:2] += tmp
@@ -177,11 +181,10 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
                     F"D_G_z2: {D_print[2] / num_iter_print_loss};"
                 )
                 D_print = np.zeros(3, dtype=float)
-                break
 
             if i and i % num_iter_check == 0:
                 update_D = (D_check[0] / num_iter_check < config['train']['d_x_up']) \
-                           or (D_check[1] / num_iter_print_loss > config['train']['d_g_z1_down'])
+                           or (D_check[1] / num_iter_check > config['train']['d_g_z1_down'])
                 D_check = np.zeros(3, dtype=float)
 
         epoch_validation(test_loader, encoder, generator, discriminator, epoch, config)

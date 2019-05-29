@@ -81,11 +81,12 @@ class Discriminator(nn.Module):
 
         )
         self.linear_final = nn.Linear(ndf + config['text']['hidden'], 1)
+        self.image_features = config['discriminator']['features']
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, text_vector, image):
         image_feature = self.main(image)
-        image_feature = image_feature.view(-1, 64)
+        image_feature = image_feature.view(-1, self.image_features)
         a = torch.cat([text_vector, image_feature], dim=1)
         a = self.linear_final(a)
         a = self.sigmoid(a)

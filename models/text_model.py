@@ -15,7 +15,7 @@ class TextEncoder(nn.Module):
     def __init__(self, config):
         super(TextEncoder, self).__init__()
         self.n_layers = config['layers']
-        self.embedding = nn.Embedding.from_pretrained(torch.load(config["embedding_path"]), freeze=False)
+        self.embedding = nn.Embedding.from_pretrained(torch.load(config["embedding_path"]), freeze=True)
         self.hidden_size = config['hidden']
         self.bidirectional = config['bidirectional']
         self.dropout = config['dropout']
