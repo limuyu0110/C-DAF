@@ -32,28 +32,40 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
     real_img = data[0].to(device)
     seqs = data[1].to(device)
     lengths = data[2].to(device)
+    seqs_fake = data[3].to(device)
+    lengths_fake = data[4].to(device)
 
     _, vectors = encoder(seqs, lengths)
-    vectors = vectors.unsqueeze(2).unsqueeze(2)
+    vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
+
+    _, vectors_fake = encoder(seqs_fake, lengths_fake)
 
     discriminator.zero_grad()
     label = torch.full((real_img.size(0),), 1, device=device)
-    output = discriminator(real_img)
+    output = discriminator(vectors, real_img)
     output = output.view(-1)
     errD_real = criterion(output, label)
-    # Calculate gradients for D in backward pass
+
     if not no_grad:
-        errD_real.backward()
+        errD_real.backward(retain_graph=True)
     D_x = output.mean().item()
 
-    ## Train with all-fake batch
-    fake = generator(vectors)
+    noise = torch.randn(vectors_new_shape.shape, device=device)
+    fake = generator(vectors_new_shape, noise)
     label.fill_(0)
-    output = discriminator(fake.detach()).view(-1)
-    errD_fake = criterion(output, label)
+    output_1 = discriminator(vectors, fake.detach()).view(-1)
+    errD_fake = criterion(output_1, label)
+
     if not no_grad:
-        errD_fake.backward()
-    D_G_z1 = output.mean().item()
+        errD_fake.backward(retain_graph=True)
+
+    output_2 = discriminator(vectors_fake, real_img).view(-1)
+    errD_fake_2 = criterion(output_2, label)
+
+    if not no_grad:
+        errD_fake_2.backward()
+
+    D_G_z1 = (output_1 + output_2).mean().item()
     optimizerD.step()
 
     return D_x, D_G_z1
@@ -69,10 +81,11 @@ def one_iter_generator(data, encoder, generator, discriminator, optimizerE, opti
     label = torch.full((real_img.size(0),), 1, device=device)
 
     _, vectors = encoder(seqs, lengths)
-    vectors = vectors.unsqueeze(2).unsqueeze(2)
-    fake = generator(vectors)
+    vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
+    noise = torch.randn(vectors_new_shape.shape, device=device)
+    fake = generator(vectors_new_shape, noise)
 
-    output = discriminator(fake).view(-1)
+    output = discriminator(vectors, fake).view(-1)
     errG = criterion(output, label)
     errG.backward()
     D_G_z2 = output.mean().item()
@@ -91,18 +104,17 @@ def epoch_validation(test_loader, encoder, generator, discriminator, epoch, conf
         seqs = data[1].to(device)
         lengths = data[2].to(device)
         _, vectors = encoder(seqs, lengths)
-        vectors = vectors.unsqueeze(2).unsqueeze(2)
+        vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
 
-        discriminator.zero_grad()
-        output = discriminator(real_img).view(-1)
+        output = discriminator(vectors, real_img).view(-1)
         D_x += output.mean().item()
 
-        fake = generator(vectors)
-        output = discriminator(fake.detach()).view(-1)
+        noise = torch.randn(vectors_new_shape.shape, device=device)
+        fake = generator(vectors_new_shape, noise)
+        output = discriminator(vectors, fake.detach()).view(-1)
         D_G_z1 += output.mean().item()
 
-        generator.zero_grad()
-        output = discriminator(fake).view(-1)
+        output = discriminator(vectors, fake).view(-1)
         D_G_z2 += output.mean().item()
 
         validation_contrast_save(real_img, fake, epoch, config)
@@ -165,6 +177,7 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
                     F"D_G_z2: {D_print[2] / num_iter_print_loss};"
                 )
                 D_print = np.zeros(3, dtype=float)
+                break
 
             if i and i % num_iter_check == 0:
                 update_D = (D_check[0] / num_iter_check < config['train']['d_x_up']) \
@@ -188,4 +201,5 @@ if __name__ == '__main__':
     discriminator = Discriminator(config).to(device)
     weights_init(generator)
     weights_init(discriminator)
+    print_params_num(generator, discriminator, encoder)
     train(train_loader, test_loader, encoder, generator, discriminator, config)

@@ -14,6 +14,7 @@ import os
 from overrides import overrides
 from PIL import Image
 import numpy as np
+import random
 
 from gensim.models import Word2Vec
 import re
@@ -25,8 +26,8 @@ sys.path.append('../')
 from utils import load_json
 
 my_transform = Compose([
-    # Resize((64, 64)),
-    Resize((128, 128)),
+    Resize((64, 64)),
+    # Resize((128, 128)),
     ToTensor(),
     # Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -73,7 +74,23 @@ class DIData(Dataset):
             ])
             for seq in sequences
         ])
-        return torch.stack(imgs), torch.LongTensor(np_li), torch.LongTensor(lengths)
+
+        sequences_fake = [
+            random.sample(sequences[:i] + sequences[i + 1:], 1)[0]
+            for i in range(len(sequences))
+        ]
+        lengths_fake = [len(seq) for seq in sequences_fake]
+
+        sequences_fake, lengths_fake = zip(*sorted([(sequences_fake[i], lengths_fake[i]) for i in range(len(lengths_fake))], key=lambda x: x[1], reverse=True))
+
+        np_li_fake = np.array([
+            np.array([
+                seq[i] if i < len(seq) else 2 for i in range(max(lengths_fake))
+            ])
+            for seq in sequences_fake
+        ])
+
+        return torch.stack(imgs), torch.LongTensor(np_li), torch.LongTensor(lengths), torch.LongTensor(np_li_fake), torch.LongTensor(lengths_fake)
 
 
 def get_loader(config):
@@ -89,3 +106,6 @@ def get_loader(config):
                                               shuffle=True,
                                               collate_fn=test_dataset.collate_fn)
     return train_loader, test_loader
+
+
+

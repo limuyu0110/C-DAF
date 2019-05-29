@@ -115,5 +115,18 @@ def load_model(epoch, encoder: Module, generator: Module, discriminator: Module,
     return encoder, generator, discriminator
 
 
+def print_params_num(generator, discriminator, encoder):
+    ng = sum(param.numel() for param in generator.parameters())
+    nd = sum(param.numel() for param in discriminator.parameters())
+    ne = sum(param.numel() for param in encoder.parameters())
+
+    print('=== Start printing parameter number ===')
+    print(F"Generator : {ng}")
+    print(F"Discriminator: {nd}")
+    print(F"Encoder: {ne}")
+    print(F"SUM: {ng + nd + ne}")
+    print('=== End printing parameter number ===')
+
+
 if __name__ == '__main__':
     plot_zag([2, 1, 3], [1, 2, 3], [3, 2, 1])

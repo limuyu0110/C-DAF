@@ -14,19 +14,19 @@
     "embedding_path": "E:\\#Projects\\workspace\\C-DAF\\data\\embedding.pt"
   },
   "train": {
-    "batch_size": 32,
+    "batch_size": 64,
     "num_epochs": 100,
     "lr": 0.0003,
     "num_iter_print_loss": 10,
-    "num_iter_check": 10,
-    "d_x_up": 0.8,
-    "d_g_z1_down": 0.2
+    "num_iter_check": 20,
+    "d_x_up": 0.9,
+    "d_g_z1_down": 0.1
   },
   "generator": {
-    "features": 128
+    "features": 64
   },
   "discriminator": {
-    "features": 128
+    "features": 64
   },
   "file": {
     "train_img_dir": "E:\\#Projects\\workspace\\C-DAF\\data\\train_img_dir",
