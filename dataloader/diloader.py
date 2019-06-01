@@ -75,22 +75,22 @@ class DIData(Dataset):
             for seq in sequences
         ])
 
-        sequences_fake = [
-            random.sample(sequences[:i] + sequences[i + 1:], 1)[0]
-            for i in range(len(sequences))
-        ]
-        lengths_fake = [len(seq) for seq in sequences_fake]
+        # sequences_fake = [
+        #     random.sample(sequences[:i] + sequences[i + 1:], 1)[0]
+        #     for i in range(len(sequences))
+        # ]
+        # lengths_fake = [len(seq) for seq in sequences_fake]
+        #
+        # sequences_fake, lengths_fake = zip(*sorted([(sequences_fake[i], lengths_fake[i]) for i in range(len(lengths_fake))], key=lambda x: x[1], reverse=True))
+        #
+        # np_li_fake = np.array([
+        #     np.array([
+        #         seq[i] if i < len(seq) else 2 for i in range(max(lengths_fake))
+        #     ])
+        #     for seq in sequences_fake
+        # ])
 
-        sequences_fake, lengths_fake = zip(*sorted([(sequences_fake[i], lengths_fake[i]) for i in range(len(lengths_fake))], key=lambda x: x[1], reverse=True))
-
-        np_li_fake = np.array([
-            np.array([
-                seq[i] if i < len(seq) else 2 for i in range(max(lengths_fake))
-            ])
-            for seq in sequences_fake
-        ])
-
-        return torch.stack(imgs), torch.LongTensor(np_li), torch.LongTensor(lengths), torch.LongTensor(np_li_fake), torch.LongTensor(lengths_fake)
+        return torch.stack(imgs), torch.LongTensor(np_li), torch.LongTensor(lengths) #, torch.LongTensor(np_li_fake), torch.LongTensor(lengths_fake)
 
 
 def get_loader(config):

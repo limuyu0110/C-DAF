@@ -32,13 +32,9 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
     real_img = data[0].to(device)
     seqs = data[1].to(device)
     lengths = data[2].to(device)
-    seqs_fake = data[3].to(device)
-    lengths_fake = data[4].to(device)
 
     _, vectors = encoder(seqs, lengths)
     vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
-
-    _, vectors_fake = encoder(seqs_fake, lengths_fake)
 
     discriminator.zero_grad()
     label = torch.full((real_img.size(0),), 1, device=device)
@@ -52,7 +48,9 @@ def one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, 
 
     D_x = output.mean().item()
 
-    noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
+    noise = torch.randn(vectors_new_shape.shape, device=device)
+    # vectors_fake = torch.randn(vectors_new_shape.shape, device=device, std=vectors_new_shape.std(), mean=vectors_new_shape.mean())
+    vectors_fake = torch.distributions.normal.Normal(loc=vectors.std(), scale=vectors.mean()).sample(vectors.shape)
 
     fake = generator(vectors_new_shape, noise)
     label.fill_(0)
@@ -85,7 +83,7 @@ def one_iter_generator(data, encoder, generator, discriminator, optimizerE, opti
 
     _, vectors = encoder(seqs, lengths)
     vectors_new_shape = vectors.unsqueeze(2).unsqueeze(2)
-    noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
+    noise = torch.randn(vectors_new_shape.shape, device=device)
     fake = generator(vectors_new_shape, noise)
 
     output = discriminator(vectors, fake).view(-1)
@@ -112,7 +110,7 @@ def epoch_validation(test_loader, encoder, generator, discriminator, epoch, conf
         output = discriminator(vectors, real_img).view(-1)
         D_x += output.mean().item()
 
-        noise = torch.randn(vectors_new_shape.shape, device=device, std=0.1)
+        noise = torch.randn(vectors_new_shape.shape, device=device)
         fake = generator(vectors_new_shape, noise)
         output = discriminator(vectors, fake.detach()).view(-1)
         D_G_z1 += output.mean().item()
@@ -161,7 +159,7 @@ def train(train_loader, test_loader, encoder, generator, discriminator, config):
                 D_epoch[:2] += tmp
                 D_print[:2] += tmp
             else:
-                print('no')
+                # print('no')
                 with torch.no_grad():
                     tmp = one_iter_discriminator(data, encoder, generator, discriminator, optimizerD, optimizerE, criterion, 1)
                     D_check[:2] += tmp

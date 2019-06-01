@@ -17,7 +17,7 @@
     "batch_size": 32,
     "num_epochs": 100,
     "lr": 0.0003,
-    "num_iter_print_loss": 5,
+    "num_iter_print_loss": 20,
     "num_iter_check": 5,
     "d_x_up": 0.8,
     "d_g_z1_down": 0.2
